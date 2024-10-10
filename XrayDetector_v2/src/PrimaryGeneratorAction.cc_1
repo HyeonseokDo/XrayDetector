@@ -1,0 +1,60 @@
+#include "PrimaryGeneratorAction.hh"
+#include "DetectorConstruction.hh"
+#include "G4ParticleGun.hh"
+#include "G4ParticleTable.hh"
+#include "G4Gamma.hh"
+#include "Randomize.hh"
+#include "G4SystemOfUnits.hh"
+#include "EnergyDistribution.hh"
+
+namespace XrayDetector {
+
+PrimaryGeneratorAction::PrimaryGeneratorAction(const DetectorConstruction* detConstruction)
+    : G4VUserPrimaryGeneratorAction(),
+      fDetConstruction(detConstruction),
+      fNumGuns(5), // 총 5개의 총
+      fEnergyDistribution(new EnergyDistribution())
+{
+    // 감마 입자 정의
+    G4ParticleDefinition* particle = G4ParticleTable::GetParticleTable()->FindParticle("gamma");
+
+    // 여러 개의 총 생성 및 초기화
+    for (int i = 0; i < fNumGuns; ++i) {
+        auto gun = new G4ParticleGun(1); // 각 총은 한 번에 하나의 입자를 발사
+        gun->SetParticleDefinition(particle);
+        gun->SetParticleMomentumDirection(G4ThreeVector(0., 0., 1.)); // 모든 총이 z축 방향으로 발사
+        fParticleGuns.push_back(gun);
+    }
+}
+
+PrimaryGeneratorAction::~PrimaryGeneratorAction() {
+    // 모든 총 삭제
+    for (auto gun : fParticleGuns) {
+        delete gun;
+    }
+    delete fEnergyDistribution;
+}
+
+void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
+    // x축 방향으로 5개의 총을 일정한 간격으로 배치 (예: 2cm 간격)
+    G4double gunSpacing = 2 * cm;
+
+    for (int i = 0; i < fNumGuns; ++i) {
+        // 각 총의 발사 위치 결정
+        G4double posX = (i - fNumGuns / 2) * gunSpacing; // x축 방향으로 균등 간격 배치
+        G4double posY = 0; // y축 위치는 동일
+        G4double posZ = -1 * cm; // z축에서 -1cm에서 시작
+
+        fParticleGuns[i]->SetParticlePosition(G4ThreeVector(posX, posY, posZ));
+
+        // 에너지 분포에 따른 에너지 설정
+        G4double energy = fEnergyDistribution->Generate();
+        fParticleGuns[i]->SetParticleEnergy(energy);
+
+        // 이벤트에 총 발사
+        fParticleGuns[i]->GeneratePrimaryVertex(event);
+    }
+}
+
+} // namespace XrayDetector
+

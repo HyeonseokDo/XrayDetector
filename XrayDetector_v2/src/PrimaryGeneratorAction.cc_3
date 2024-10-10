@@ -1,0 +1,68 @@
+#include "PrimaryGeneratorAction.hh"
+#include "DetectorConstruction.hh"
+// G4ParticleGun 클래스 포함
+#include "G4ParticleGun.hh"
+#include "G4ParticleTable.hh"
+#include "G4Gamma.hh"
+#include "G4SystemOfUnits.hh"
+#include "G4ios.hh"  // G4cout 사용을 위해 필요
+
+namespace XrayDetector {
+
+PrimaryGeneratorAction::PrimaryGeneratorAction(const DetectorConstruction* detConstruction)
+    : fDetConstruction(detConstruction), fParticleGun(nullptr)
+{
+    G4int n_particle = 1;
+    fParticleGun = new G4ParticleGun(n_particle);
+
+    // 기본 입자를 감마선으로 설정
+    G4ParticleDefinition* particle = G4ParticleTable::GetParticleTable()->FindParticle("gamma");
+    if (!particle) {
+        G4cerr << "Particle definition for gamma not found!" << G4endl;
+    }
+    fParticleGun->SetParticleDefinition(particle);
+    fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., 1.));
+    fParticleGun->SetParticleEnergy(0.5 * MeV);  // 에너지 설정
+
+    G4cout << "PrimaryGeneratorAction Constructor Completed." << G4endl;
+}
+
+PrimaryGeneratorAction::~PrimaryGeneratorAction() {
+    G4cout << "PrimaryGeneratorAction Destructor Called." << G4endl;
+    delete fParticleGun;
+}
+
+void PrimaryGeneratorAction::GeneratePrimaries(G4Event* event) {
+    // Mother detector와 daughter detector의 크기
+    G4double motherSizeX = 4.1 * mm;
+    G4double motherSizeY = 2.1 * cm;
+    G4double daughterSizeX = 0.01 * cm;
+    G4double daughterSizeY = 0.1 * cm;
+
+    // daughter detector의 Y 방향 수
+    G4int numDaughtersY = 21;
+
+    // 0번부터 40번까지의 copyNo에 대해 반복
+    for (int copyNo = 0; copyNo <= 40; ++copyNo) {
+        // copyNo를 ix와 iy로 매핑
+        int ix = copyNo / numDaughtersY;
+        int iy = copyNo % numDaughtersY;
+
+        // 위치 계산
+        G4double posX = -motherSizeX / 2.0 + (ix + 0.5) * daughterSizeX;
+        G4double posY = -motherSizeY / 2.0 + (iy + 0.5) * daughterSizeY;
+        G4ThreeVector position(posX, posY, 0.0);
+
+        // copyNo만큼의 감마선을 발사
+        for (int i = 0; i < copyNo; ++i) {
+            fParticleGun->SetParticlePosition(position);
+            fParticleGun->GeneratePrimaryVertex(event);
+        }
+
+        // 디버깅용 출력 (필요 시 주석 해제)
+        // G4cout << "CopyNo: " << copyNo << ", Position: " << position << ", Gammas: " << copyNo << G4endl;
+    }
+}
+
+} // namespace XrayDetector
+

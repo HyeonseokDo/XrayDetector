@@ -1,0 +1,78 @@
+#include "RunAction.hh"
+#include "G4Run.hh"
+#include "G4RunManager.hh"
+#include "G4AnalysisManager.hh"
+#include "G4VisManager.hh"
+
+namespace XrayDetector {
+
+RunAction::RunAction() : G4UserRunAction() {
+    G4RunManager::GetRunManager()->SetPrintProgress(1);
+    auto analysisManager = G4AnalysisManager::Instance();
+    if (!analysisManager) {
+        G4cerr << "Failed to create G4AnalysisManager!" << G4endl;
+        return;
+    }
+    analysisManager->SetVerboseLevel(1);
+    analysisManager->SetNtupleMerging(true);
+}
+
+RunAction::~RunAction() {
+    delete G4AnalysisManager::Instance();
+}
+
+G4Run* RunAction::GenerateRun() {
+    return new G4Run();
+}
+
+void RunAction::BeginOfRunAction(const G4Run*) {
+    auto analysisManager = G4AnalysisManager::Instance();
+    analysisManager->OpenFile("XrayOutput.root");
+
+    analysisManager->CreateNtuple("Xray", "Gamma Info");
+    analysisManager->CreateNtupleDColumn("StartX");
+    analysisManager->CreateNtupleDColumn("StartY");
+    analysisManager->CreateNtupleDColumn("StartZ");
+    analysisManager->CreateNtupleIColumn("StartDetectorID");
+
+    analysisManager->CreateNtupleDColumn("EndX");
+    analysisManager->CreateNtupleDColumn("EndY");
+    analysisManager->CreateNtupleDColumn("EndZ");
+    analysisManager->CreateNtupleIColumn("EndDetectorID");
+	
+	// 디텍터 에너지 누적 컬럼 추가
+    for (G4int i = 0; i < 861; ++i) {
+        analysisManager->CreateNtupleDColumn("EnergyDeposit_" + std::to_string(i));
+    }
+
+    analysisManager->FinishNtuple();
+}
+
+void RunAction::EndOfRunAction(const G4Run*) {
+    auto analysisManager = G4AnalysisManager::Instance();
+
+	// 누적된 에너지 데이터를 저장합니다.
+    for (G4int i = 0; i < 861; ++i) {
+        analysisManager->FillNtupleDColumn(8 + i, fEnergyDeposits[i]);
+    }
+
+	analysisManager->AddNtupleRow();
+
+    analysisManager->Write();
+    analysisManager->CloseFile();
+
+    // 시각화 시스템 정리
+    //G4VisManager::GetInstance()->~G4VisManager();
+}
+
+void RunAction::AddEnergyDeposit(G4int detectorID, G4double energyDeposit) {
+    if (detectorID >= 0 && detectorID < 861) {
+        fEnergyDeposits[detectorID] += energyDeposit;
+    }
+}
+
+const std::vector<double>& RunAction::GetEnergyDeposits() const {
+    return fEnergyDeposits;
+}
+
+}
