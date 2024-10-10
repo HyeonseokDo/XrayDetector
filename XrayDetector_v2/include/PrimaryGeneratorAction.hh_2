@@ -1,0 +1,32 @@
+#ifndef PRIMARYGENERATORACTION_HH
+#define PRIMARYGENERATORACTION_HH
+
+#include "G4VUserPrimaryGeneratorAction.hh"
+#include "globals.hh"
+#include "G4ThreeVector.hh"
+
+// DetectorConstruction 클래스 포함
+#include "DetectorConstruction.hh"
+
+namespace XrayDetector {
+
+// G4ParticleGun 클래스에 대한 전방 선언은 그대로 유지
+class G4ParticleGun;
+
+class PrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
+{
+public:
+    PrimaryGeneratorAction(const DetectorConstruction* detConstruction);
+    virtual ~PrimaryGeneratorAction();
+
+    virtual void GeneratePrimaries(G4Event* event) override;
+
+private:
+    const DetectorConstruction* fDetConstruction;
+    G4ParticleGun* fParticleGun;
+};
+
+} // namespace XrayDetector
+
+#endif
+
